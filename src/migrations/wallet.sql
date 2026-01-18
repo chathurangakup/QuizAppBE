@@ -1,0 +1,11 @@
+CREATE TABLE wallets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+
+    total_earnings DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    today_earnings DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    available_to_withdraw DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
