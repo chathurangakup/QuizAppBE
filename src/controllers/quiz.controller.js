@@ -201,7 +201,8 @@ exports.updateQuizStatus = async (req, res) => {
     return res.status(400).json({ message: "Status is required" });
   }
 
-  const allowedStatuses = ["ACTIVE", "PROCESSING"];
+  const allowedStatuses = ["ACTIVE", "PROCESSING", "COMPLETED"];
+
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({
       message: "Invalid status value",
@@ -214,7 +215,7 @@ exports.updateQuizStatus = async (req, res) => {
        SET status = $1
        WHERE id = $2
        RETURNING id, title, status`,
-      [status, quizId]
+      [status, quizId],
     );
 
     if (result.rowCount === 0) {
@@ -258,7 +259,7 @@ exports.getAllQuizzes = async (req, res) => {
       ORDER BY created_at DESC
       LIMIT $3 OFFSET $4;
       `,
-      [difficulty || null, status || null, limit, offset]
+      [difficulty || null, status || null, limit, offset],
     );
 
     res.json({
@@ -268,6 +269,97 @@ exports.getAllQuizzes = async (req, res) => {
     });
   } catch (error) {
     console.error("Fetch quizzes error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// GET ALL QUIZZES (With Filters & Pagination)
+exports.getAllQuizzesForMobileapp = async (req, res) => {
+  const { difficulty, status, page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+
+  try {
+    const result = await db.query(
+      `
+      SELECT
+        id,
+        title,
+        description,
+        image_url,
+        total_questions,
+        reward_amount,
+        difficulty,
+        deadline,
+        status,
+        created_at
+      FROM quizzes
+      WHERE is_active = TRUE
+        AND ($1::text IS NULL OR difficulty = $1)
+        AND ($2::text IS NULL OR status = $2)
+      ORDER BY created_at DESC
+      LIMIT $3 OFFSET $4;
+      `,
+      [difficulty || null, status || null, limit, offset],
+    );
+
+    res.json({
+      page: Number(page),
+      limit: Number(limit),
+      quizzes: result.rows,
+    });
+  } catch (error) {
+    console.error("Fetch quizzes error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// GET ALL QUIZZES WITH USER SUBMISSION STATUS (For Mobile App)
+exports.getAllQuizzesWithUserStatus = async (req, res) => {
+  const { userId } = req.user; // Get userId from auth middleware
+  const { difficulty, status, page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+
+  // Validate user ID
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const result = await db.query(
+      `
+      SELECT
+        q.id,
+        q.title,
+        q.description,
+        q.image_url,
+        q.total_questions,
+        q.reward_amount,
+        q.difficulty,
+        q.deadline,
+        q.status,
+        q.created_at,
+        CASE 
+          WHEN qs.quiz_id IS NOT NULL THEN true 
+          ELSE false 
+        END AS isDisabled
+      FROM quizzes q
+      LEFT JOIN quiz_submissions qs ON q.id = qs.quiz_id AND qs.user_id = $1::uuid
+      WHERE q.is_active = TRUE
+        AND ($2::text IS NULL OR q.difficulty = $2)
+        AND ($3::text IS NULL OR q.status = $3)
+      ORDER BY q.created_at DESC
+      LIMIT $4 OFFSET $5;
+      `,
+      [userId, difficulty || null, status || null, limit, offset],
+    );
+
+    res.json({
+      page: Number(page),
+      limit: Number(limit),
+      quizzes: result.rows,
+    });
+  } catch (error) {
+    console.error("Fetch quizzes with user status error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

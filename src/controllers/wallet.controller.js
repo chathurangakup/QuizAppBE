@@ -17,7 +17,7 @@ exports.getWallet = async (req, res) => {
          updated_at
        FROM wallets
        WHERE user_id = $1`,
-      [userId]
+      [userId],
     );
 
     if (result.rows.length === 0) {
@@ -27,6 +27,43 @@ exports.getWallet = async (req, res) => {
     res.json({ wallet: result.rows[0] });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getUserWalletByAdmin = async (req, res) => {
+  try {
+    let userId;
+
+    // 🔥 If admin sends userId via params
+    if (req.params.userId) {
+      userId = req.params.userId;
+    }
+    // 🔐 If normal user → use token userId
+    else {
+      userId = req.user.userId;
+    }
+
+    const result = await db.query(
+      `SELECT
+         id,
+         total_earnings,
+         today_earnings,
+         available_to_withdraw,
+         created_at,
+         updated_at
+       FROM wallets
+       WHERE user_id = $1`,
+      [userId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Wallet not found" });
+    }
+
+    res.json({ wallet: result.rows[0] });
+  } catch (error) {
+    console.error("Get Wallet Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -49,7 +86,7 @@ exports.getWalletTransactions = async (req, res) => {
        JOIN wallets w ON w.id = wt.wallet_id
        WHERE w.user_id = $1
        ORDER BY wt.created_at DESC`,
-      [userId]
+      [userId],
     );
 
     res.json({ transactions: result.rows });
@@ -66,7 +103,13 @@ exports.getWalletTransactions = async (req, res) => {
  */
 
 exports.updateWalletBalance = async (req, res) => {
-  const adminId = req.user.userId;
+  const adminId = req.user.userId; // Assuming only admins can update wallet balance
+
+  if (!adminId) {
+    return res.status(401).json({
+      message: "Unauthorized - Admin token missing",
+    });
+  }
 
   const {
     user_id,
@@ -103,7 +146,7 @@ exports.updateWalletBalance = async (req, res) => {
     // 🔒 Admin validation
     const adminCheck = await db.query(
       `SELECT id FROM admin_users WHERE id = $1`,
-      [adminId]
+      [adminId],
     );
 
     if (adminCheck.rows.length === 0) {
@@ -114,7 +157,7 @@ exports.updateWalletBalance = async (req, res) => {
     // 🔒 Lock wallet
     let walletRes = await db.query(
       `SELECT id FROM wallets WHERE user_id = $1 FOR UPDATE`,
-      [user_id]
+      [user_id],
     );
 
     let walletId;
@@ -126,7 +169,7 @@ exports.updateWalletBalance = async (req, res) => {
          (user_id, total_earnings, today_earnings, available_to_withdraw)
          VALUES ($1, $2, $3, $4)
          RETURNING id`,
-        [user_id, total_earnings, today_earnings, available_to_withdraw]
+        [user_id, total_earnings, today_earnings, available_to_withdraw],
       );
       walletId = created.rows[0].id;
     } else {
@@ -141,7 +184,7 @@ exports.updateWalletBalance = async (req, res) => {
            available_to_withdraw = $3,
            updated_at = NOW()
          WHERE id = $4`,
-        [total_earnings, today_earnings, available_to_withdraw, walletId]
+        [total_earnings, today_earnings, available_to_withdraw, walletId],
       );
     }
 
@@ -150,7 +193,7 @@ exports.updateWalletBalance = async (req, res) => {
       `INSERT INTO wallet_transactions
        (wallet_id, type, amount, reference_id)
        VALUES ($1, $2, $3, $4)`,
-      [walletId, transaction_type, available_to_withdraw, adminId]
+      [walletId, transaction_type, available_to_withdraw, adminId],
     );
 
     await db.query("COMMIT");

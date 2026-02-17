@@ -10,5 +10,6 @@ CREATE TABLE users (
   updated_at TIMESTAMP DEFAULT NOW(),
   name TEXT,
   country TEXT,
+  profile_picture_url TEXT,
   kyc_status TEXT CHECK (kyc_status IN ('PENDING', 'APPROVED', 'REJECTED')) DEFAULT 'PENDING'
 );

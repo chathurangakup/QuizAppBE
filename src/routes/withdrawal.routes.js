@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const withdrawalController = require("../controllers/withdrawal.controller");
-const auth = require("../utils/auth.middleware");
-const admin = require("../utils/admin.middleware");
+const auth = require("../middleware/auth");
+const admin = require("../middleware/admin");
 
 // USER
 router.post("/", auth, withdrawalController.createWithdrawalRequest);
@@ -13,19 +13,19 @@ router.get(
   "/admin/pending",
   auth,
   admin,
-  withdrawalController.getPendingWithdrawals
+  withdrawalController.getPendingWithdrawals,
 );
 router.post(
   "/admin/:id/approve",
   auth,
   admin,
-  withdrawalController.approveWithdrawal
+  withdrawalController.approveWithdrawal,
 );
 router.post(
   "/admin/:id/reject",
   auth,
   admin,
-  withdrawalController.rejectWithdrawal
+  withdrawalController.rejectWithdrawal,
 );
 router.post("/admin/:id/paid", auth, admin, withdrawalController.markAsPaid);
 

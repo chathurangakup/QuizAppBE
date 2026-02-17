@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const kycController = require("../controllers/kyc.controller");
-const auth = require("../utils/auth.middleware");
-const admin = require("../utils/admin.middleware");
+const auth = require("../middleware/auth");
+const admin = require("../middleware/admin");
 
 // POST route to update kyc_requests table
 router.post("/kyc-requests", auth, kycController.updateKycRequest);
@@ -11,19 +11,18 @@ router.post("/kyc-requests", auth, kycController.updateKycRequest);
 router.put(
   "/kyc-requests/:id/selfie-image",
   auth,
-  kycController.updateSelfieImageUrl
+  kycController.updateSelfieImageUrl,
 );
 
 // PUT route to update status, reviewed_by, and review_note
 router.put(
   "/admin/kyc-requests/:id/review",
-  auth,
-  admin,
-  kycController.updateKycReview
+
+  kycController.updateKycReview,
 );
 
 // GET (Admin)
-// router.get("/admin/kyc-requests", auth, admin, kycController.getAllKycRequests);
+router.get("/admin/kyc-requests", kycController.getAllKycRequests);
 // router.get(
 //   "/admin/kyc-requests/status",
 //   auth,

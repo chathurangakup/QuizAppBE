@@ -1,20 +1,19 @@
 const pool = require("../config/db");
 
-// POST API to update kyc_requests table
 exports.updateKycRequest = async (req, res) => {
+  const userId = req.user.userId; // ✅ Get userId from token
+
   const {
-    user_id,
     document_type,
     document_number,
     document_image_front_url,
     document_image_back_url,
     selfie_image_url,
-    address, // ✅ NEW
+    address,
   } = req.body;
 
   // 🔒 Validation
   if (
-    !user_id ||
     !document_type ||
     !document_image_front_url ||
     !document_image_back_url ||
@@ -38,14 +37,14 @@ exports.updateKycRequest = async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7)
       RETURNING *`,
       [
-        user_id,
+        userId, // 🔥 coming from JWT
         document_type,
         document_number,
         document_image_front_url,
         document_image_back_url,
         selfie_image_url,
         address,
-      ]
+      ],
     );
 
     res.status(201).json({
@@ -70,7 +69,7 @@ exports.updateSelfieImageUrl = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE kyc_requests SET selfie_image_url = $1 WHERE id = $2 RETURNING *`,
-      [selfie_image_url, id]
+      [selfie_image_url, id],
     );
 
     if (result.rowCount === 0) {
@@ -99,7 +98,7 @@ exports.updateKycReview = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE kyc_requests SET status = $1, reviewed_by = $2, review_note = $3, reviewed_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *`,
-      [status, reviewed_by, review_note, id]
+      [status, reviewed_by, review_note, id],
     );
 
     if (result.rowCount === 0) {
@@ -117,23 +116,23 @@ exports.updateKycReview = async (req, res) => {
 };
 
 // // GET all KYC requests (Admin)
-// exports.getAllKycRequests = async (req, res) => {
-//   try {
-//     const result = await pool.query(
-//       `SELECT
-//          kr.*,
-//          u.email AS user_email
-//        FROM kyc_requests kr
-//        JOIN users u ON u.id = kr.user_id
-//        ORDER BY kr.created_at DESC`
-//     );
+exports.getAllKycRequests = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         kr.*,
+         u.email AS user_email
+       FROM kyc_requests kr
+       JOIN users u ON u.id = kr.user_id
+       ORDER BY kr.created_at DESC`,
+    );
 
-//     res.json({ kycRequests: result.rows });
-//   } catch (error) {
-//     console.error("Error fetching KYC requests:", error);
-//     res.status(500).json({ message: "Internal server error" });
-//   }
-// };
+    res.json({ kycRequests: result.rows });
+  } catch (error) {
+    console.error("Error fetching KYC requests:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 // // GET KYC requests by status (PENDING / APPROVED / REJECTED)
 // exports.getKycRequestsByStatus = async (req, res) => {
@@ -198,7 +197,7 @@ exports.getMyKycRequest = async (req, res) => {
        WHERE user_id = $1
        ORDER BY created_at DESC
        LIMIT 1`,
-      [userId]
+      [userId],
     );
 
     // ✅ No KYC yet → NOT an error

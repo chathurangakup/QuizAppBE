@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const submitquizController = require("../controllers/submitquiz.controller");
-const auth = require("../utils/auth.middleware");
-const admin = require("../utils/admin.middleware");
+const auth = require("../middleware/auth");
+const admin = require("../middleware/admin");
 
 // Route for creating a new quiz
 router.post("/:quiz_id/submit", auth, submitquizController.submitQuizAnswers);
@@ -10,17 +10,18 @@ router.get(
   "/getsubmitquiz",
   auth,
   admin,
-  submitquizController.getAllQuizSubmissions
+  submitquizController.getAllQuizSubmissions,
 );
 router.get(
   "/my-quiz-submissions",
   auth,
-  submitquizController.getMyQuizSubmissions
+  submitquizController.getMyQuizSubmissions,
 );
 
 router.get(
   "/getsubmitquiz/:id",
   auth,
-  submitquizController.getQuizSubmissionDetails
+  admin,
+  submitquizController.getQuizSubmissionDetails,
 );
 module.exports = router;

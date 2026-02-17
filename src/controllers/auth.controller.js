@@ -1,6 +1,6 @@
 const pool = require("../config/db");
-const { hashPassword, comparePassword } = require("../utils/password");
-const { signToken } = require("../utils/jwt");
+const { hashPassword, comparePassword } = require("../middleware/password");
+const { signToken } = require("../middleware/jwt");
 
 // REGISTER
 exports.register = async (req, res) => {
@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
       )
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, email, phone, name, country, kyc_status, created_at`,
-      [email, phone || null, passwordHash, name, country]
+      [email, phone || null, passwordHash, name, country],
     );
 
     res.status(201).json({
@@ -54,8 +54,8 @@ exports.login = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, password_hash FROM users WHERE email = $1`,
-      [email]
+      `SELECT id, password_hash, is_active FROM users WHERE email = $1`,
+      [email],
     );
 
     if (result.rowCount === 0) {
@@ -69,14 +69,29 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = signToken({ userId: user.id });
+    if (!user.is_active) {
+      return res.status(403).json({ message: "User account is inactive" });
+    }
+
+    // // Check if user is an admin
+    const adminCheck = await pool.query(
+      `SELECT role FROM admin_users WHERE email = $1`,
+      [email],
+    );
+
+    const role = adminCheck.rowCount > 0 ? adminCheck.rows[0].role : "USER";
+
+    const token = signToken({ userId: user.id, role });
+    console.log("Generated JWT Token:", token);
 
     res.json({
       message: "Login successful",
       token,
       userId: user.id,
+      role,
     });
   } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -99,7 +114,7 @@ exports.getUserDetails = async (req, res) => {
         updated_at
       FROM users
       WHERE id = $1`,
-      [userId]
+      [userId],
     );
 
     if (result.rows.length === 0) {
@@ -135,7 +150,7 @@ exports.updateUserDetails = async (req, res) => {
         updated_at = NOW()
       WHERE id = $5
       RETURNING id, name, email, phone, country, kyc_status, updated_at`,
-      [name, email, phone, country, userId]
+      [name, email, phone, country, userId],
     );
 
     if (result.rowCount === 0) {
@@ -155,6 +170,34 @@ exports.updateUserDetails = async (req, res) => {
     }
 
     console.error("Error updating user details:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// GET ALL USERS (Admin only ideally)
+exports.getAllUsers = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        email,
+        phone,
+        name,
+        country,
+        kyc_status,
+        is_active,
+        created_at,
+        updated_at
+      FROM users
+      ORDER BY created_at DESC`,
+    );
+
+    res.status(200).json({
+      count: result.rowCount,
+      users: result.rows,
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

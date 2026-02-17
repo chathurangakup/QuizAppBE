@@ -1,7 +1,7 @@
 // POST API to add admin user data
 
-const { signToken } = require("../utils/jwt");
-const { hashPassword, comparePassword } = require("../utils/password");
+const { signToken } = require("../middleware/jwt");
+const { hashPassword, comparePassword } = require("../middleware/password");
 const pool = require("../config/db");
 
 exports.addAdminUser = async (req, res) => {
@@ -18,7 +18,7 @@ exports.addAdminUser = async (req, res) => {
       `INSERT INTO admin_users (email, password_hash, role)
              VALUES ($1, $2, $3)
              RETURNING id, email, role, created_at`,
-      [email, passwordHash, role]
+      [email, passwordHash, role],
     );
 
     res.status(201).json({
@@ -44,7 +44,7 @@ exports.adminLogin = async (req, res) => {
       `SELECT id, email, password_hash, role
        FROM admin_users
        WHERE email = $1`,
-      [email]
+      [email],
     );
 
     if (result.rowCount === 0) {
@@ -63,6 +63,14 @@ exports.adminLogin = async (req, res) => {
       adminId: admin.id,
       role: admin.role,
       type: "ADMIN",
+    });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false, // true in production
+      sameSite: "lax",
+      path: "/", // ✅ Available across all routes
+      maxAge: 7 * 24 * 60 * 60,
     });
 
     res.status(200).json({
